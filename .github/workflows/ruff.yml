@@ -1,0 +1,24 @@
+name: Ruff
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  ruff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      # Only the dev group: ruff in the version pinned by uv.lock, without installing torch.
+      - name: Lint
+        run: uv run --locked --only-group dev ruff check --output-format=github .
+
+      - name: Format check
+        if: always()
+        run: uv run --locked --only-group dev ruff format --check .
