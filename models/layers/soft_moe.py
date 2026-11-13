@@ -1,4 +1,4 @@
-from typing import Tuple
+from __future__ import annotations
 
 import torch
 from torch import nn
@@ -19,12 +19,15 @@ class SoftMoELayer(nn.Module):
     Dispatch weights  D = softmax(X @ Φ.T, dim=1)  — how each token feeds each slot.
     Combine weights   C = softmax(X @ Φ.T, dim=2)  — how each slot contributes to each token.
     """
-    def __init__(self,
-                 d_model: int,
-                 n_experts: int,
-                 slots_per_expert: int = 1,
-                 d_ff: int = None,
-                 activation_dropout: float = 0.0):
+
+    def __init__(
+        self,
+        d_model: int,
+        n_experts: int,
+        slots_per_expert: int = 1,
+        d_ff: int | None = None,
+        activation_dropout: float = 0.0,
+    ):
         super().__init__()
         self.n_experts = n_experts
         self.slots_per_expert = slots_per_expert
@@ -33,21 +36,26 @@ class SoftMoELayer(nn.Module):
 
         self.slot_embeddings = nn.Parameter(torch.randn(self.n_slots, d_model) * 0.02)
 
-        self.experts = nn.ModuleList([
-            build_mlp([d_model, d_ff, d_model], add_final_activation=False,
-                      activation_dropout=activation_dropout)
-            for _ in range(n_experts)
-        ])
+        self.experts = nn.ModuleList(
+            [
+                build_mlp(
+                    [d_model, d_ff, d_model],
+                    add_final_activation=False,
+                    activation_dropout=activation_dropout,
+                )
+                for _ in range(n_experts)
+            ]
+        )
 
-    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         # x: B × n × d
-        logits = torch.einsum('bnd,sd->bns', x, self.slot_embeddings)  # B × n × n_slots
+        logits = torch.einsum("bnd,sd->bns", x, self.slot_embeddings)  # B × n × n_slots
 
         D = torch.softmax(logits, dim=1)  # dispatch: over tokens, per slot
         C = torch.softmax(logits, dim=2)  # combine: over slots, per token
 
         # Input to each slot: weighted sum of tokens
-        x_slots = torch.einsum('bns,bnd->bsd', D, x)  # B × n_slots × d
+        x_slots = torch.einsum("bns,bnd->bsd", D, x)  # B × n_slots × d
 
         # Apply each expert to its assigned slots
         y_slots = torch.empty_like(x_slots)
@@ -57,7 +65,7 @@ class SoftMoELayer(nn.Module):
             y_slots[:, s0:s1, :] = expert(x_slots[:, s0:s1, :])
 
         # Combine slot outputs back to token positions
-        y = torch.einsum('bns,bsd->bnd', C, y_slots)  # B × n × d
+        y = torch.einsum("bns,bsd->bnd", C, y_slots)  # B × n × d
         # No load-balancing loss needed: every expert sees a soft-weighted
         # combination of all tokens on every step, so there is no discrete
         # routing decision to balance.

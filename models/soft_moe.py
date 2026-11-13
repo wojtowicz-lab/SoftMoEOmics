@@ -1,4 +1,4 @@
-from typing import Dict, List
+from __future__ import annotations
 
 from .layers import SoftMoELayer
 from .multimodal import MultiModalMoE
@@ -11,23 +11,29 @@ class MultiModalSoftMoE(MultiModalMoE):
     every expert sees a soft-weighted combination of all modality tokens, so
     no auxiliary load-balancing loss is needed (last_aux_loss stays 0).
     """
+
     moe_type = "soft"
 
-    def __init__(self,
-                 input_dims: Dict[str, int],
-                 d_model: int = 384,
-                 n_experts: int = 4,
-                 slots_per_expert: int = 1,
-                 d_ff: int = None,
-                 n_moe_layers: int = 2,
-                 decoder_hidden_layers: List[int] = None,
-                 activation_dropout: float = 0.124,
-                 use_attn_mix: bool = False,
-                 attn_heads: int = 4):
+    def __init__(
+        self,
+        input_dims: dict[str, int],
+        d_model: int = 384,
+        n_experts: int = 4,
+        slots_per_expert: int = 1,
+        d_ff: int | None = None,
+        n_moe_layers: int = 2,
+        decoder_hidden_layers: list[int] | None = None,
+        activation_dropout: float = 0.124,
+        use_attn_mix: bool = False,
+        attn_heads: int = 4,
+    ):
         super().__init__(
-            input_dims, d_model,
+            input_dims,
+            d_model,
             build_moe_layers=lambda: [
-                SoftMoELayer(d_model, n_experts, slots_per_expert, d_ff, activation_dropout)
+                SoftMoELayer(
+                    d_model, n_experts, slots_per_expert, d_ff, activation_dropout
+                )
                 for _ in range(n_moe_layers)
             ],
             decoder_hidden_layers=decoder_hidden_layers,

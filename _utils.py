@@ -1,16 +1,19 @@
+from __future__ import annotations
+
 import random
-from typing import Dict, List
 
 import torch
 import torch.nn.functional as F
 from torch import nn
 
 
-def build_mlp(dims: List[int], add_final_activation: bool = False, activation_dropout: float = 0.0) -> nn.Sequential:
+def build_mlp(
+    dims: list[int], add_final_activation: bool = False, activation_dropout: float = 0.0
+) -> nn.Sequential:
     layers = []
     for i in range(len(dims) - 1):
-        layers.append(nn.Linear(dims[i], dims[i+1]))
-        is_last = (i == len(dims) - 2)
+        layers.append(nn.Linear(dims[i], dims[i + 1]))
+        is_last = i == len(dims) - 2
         if not is_last or add_final_activation:
             layers.append(nn.ReLU())
             if activation_dropout > 0.0:
@@ -20,16 +23,19 @@ def build_mlp(dims: List[int], add_final_activation: bool = False, activation_dr
 
 class ModalityDecoder(nn.Module):
     """Decoder: hidden_dim -> ... -> input_dim (untied)."""
-    def __init__(self, dims: List[int], activation_dropout: float = 0.0):
+
+    def __init__(self, dims: list[int], activation_dropout: float = 0.0):
         super().__init__()
         assert len(dims) >= 2, "dims must include [hidden_dim, ..., input_dim]"
-        self.net = build_mlp(dims, add_final_activation=False, activation_dropout=activation_dropout)
+        self.net = build_mlp(
+            dims, add_final_activation=False, activation_dropout=activation_dropout
+        )
 
     def forward(self, h):
         return self.net(h)
 
 
-def apply_modality_dropout(batch: Dict[str, torch.Tensor], dropout_prob: float = 0.2):
+def apply_modality_dropout(batch: dict[str, torch.Tensor], dropout_prob: float = 0.2):
     kept = {}
     for mod, x in batch.items():
         if random.random() > dropout_prob:
@@ -37,8 +43,7 @@ def apply_modality_dropout(batch: Dict[str, torch.Tensor], dropout_prob: float =
     return kept if kept else batch
 
 
-def prepare_clean_batch(batch: Dict[str, torch.Tensor],
-                         mask_values: Dict[str, float]):
+def prepare_clean_batch(batch: dict[str, torch.Tensor], mask_values: dict[str, float]):
     """
     Replace true NaNs with modality-specific sentinel values.
     Returns:
@@ -57,9 +62,7 @@ def prepare_clean_batch(batch: Dict[str, torch.Tensor],
 
 
 def apply_feature_mask_noise_with_sentinels(
-    batch_clean: Dict[str, torch.Tensor],
-    mask_values: Dict[str, float],
-    p: float = 0.1
+    batch_clean: dict[str, torch.Tensor], mask_values: dict[str, float], p: float = 0.1
 ):
     """
     For each modality, with prob p per feature, replace with that modality's sentinel.
@@ -86,10 +89,10 @@ def apply_feature_mask_noise_with_sentinels(
 
 
 def reconstruction_loss_with_masks(
-    target_batch: Dict[str, torch.Tensor],
-    reconstructions: Dict[str, torch.Tensor],
-    orig_missing_masks: Dict[str, torch.Tensor],
-    artificial_masks: Dict[str, torch.Tensor] = None,
+    target_batch: dict[str, torch.Tensor],
+    reconstructions: dict[str, torch.Tensor],
+    orig_missing_masks: dict[str, torch.Tensor],
+    artificial_masks: dict[str, torch.Tensor] | None = None,
     alpha_mask: float = 0.5,
 ):
     """
@@ -129,7 +132,7 @@ def reconstruction_loss_with_masks(
     return total, per_mod_loss
 
 
-def contrastive_loss(embeddings: Dict[str, torch.Tensor], temperature: float = 0.1):
+def contrastive_loss(embeddings: dict[str, torch.Tensor], temperature: float = 0.1):
     mods = list(embeddings.keys())
     if len(mods) < 2:
         any_tensor = next(iter(embeddings.values()))
@@ -138,14 +141,20 @@ def contrastive_loss(embeddings: Dict[str, torch.Tensor], temperature: float = 0
     loss = 0.0
     count = 0
     for i in range(len(mods)):
-        for j in range(i+1, len(mods)):
+        for j in range(i + 1, len(mods)):
             z1 = embeddings[mods[i]]
             z2 = embeddings[mods[j]]
-            sim_ab = F.cosine_similarity(z1.unsqueeze(1), z2.unsqueeze(0), dim=-1) / temperature
+            sim_ab = (
+                F.cosine_similarity(z1.unsqueeze(1), z2.unsqueeze(0), dim=-1)
+                / temperature
+            )
             labels = torch.arange(z1.size(0), device=z1.device)
             loss += F.cross_entropy(sim_ab, labels)
 
-            sim_ba = F.cosine_similarity(z2.unsqueeze(1), z1.unsqueeze(0), dim=-1) / temperature
+            sim_ba = (
+                F.cosine_similarity(z2.unsqueeze(1), z1.unsqueeze(0), dim=-1)
+                / temperature
+            )
             loss += F.cross_entropy(sim_ba, labels)
             count += 2
     return loss / max(count, 1)

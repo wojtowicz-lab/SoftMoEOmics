@@ -11,9 +11,12 @@ class TokenMixingAttention(nn.Module):
     cross-token channel to do so, the same job SoftMoE's dispatch/combine gets
     "for free" from pooling over all tokens per slot.
     """
+
     def __init__(self, d_model: int, n_heads: int = 4, dropout: float = 0.0):
         super().__init__()
-        self.attn = nn.MultiheadAttention(d_model, n_heads, dropout=dropout, batch_first=True)
+        self.attn = nn.MultiheadAttention(
+            d_model, n_heads, dropout=dropout, batch_first=True
+        )
         self.norm = nn.LayerNorm(d_model)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
