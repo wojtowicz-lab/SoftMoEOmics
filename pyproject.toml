@@ -19,3 +19,6 @@ package-dir = {"soft_moe" = "."}
 dev = [
     "ruff>=0.17.5",
 ]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["N999"]
