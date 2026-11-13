@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "soft_moe"
+version = "0.1.0"
+description = "Soft Mixture-of-Experts multi-modal model for multi-omics imputation"
+requires-python = ">=3.9"
+dependencies = [
+    "torch>=2.0",
+]
+
+[tool.setuptools]
+packages = ["soft_moe", "soft_moe.models", "soft_moe.models.layers"]
+package-dir = {"soft_moe" = "."}
+
+[dependency-groups]
+dev = [
+    "ruff>=0.17.5",
+]
